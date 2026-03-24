@@ -721,7 +721,7 @@ struct NotchOverlayView: View {
 
                         if content.showPagePicker {
                             pagePickerView
-                        } else if isDone {
+                        } else if isDone && (listeningMode == .wordTracking || hasNextPage) {
                             doneView
                         } else {
                             prompterView
@@ -765,12 +765,19 @@ struct NotchOverlayView: View {
         .animation(.easeInOut(duration: 0.5), value: isDone)
         .onChange(of: isDone) { _, done in
             if done {
-                // Stop listening when page is done
-                speechRecognizer.stop()
+                // In word tracking mode, stop listening when page is done
+                if listeningMode == .wordTracking {
+                    speechRecognizer.stop()
+                }
                 if !hasNextPage {
-                    // Show "Done" briefly, then auto-dismiss
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        speechRecognizer.shouldDismiss = true
+                    // Only auto-dismiss in word tracking mode.
+                    // In classic/silence-paused modes the speaker may still be
+                    // talking after the auto-scroll finishes, so keep the text
+                    // visible and let them dismiss manually (X button or Esc).
+                    if listeningMode == .wordTracking {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            speechRecognizer.shouldDismiss = true
+                        }
                     }
                 } else if NotchSettings.shared.autoNextPage {
                     startCountdown()
@@ -1213,7 +1220,7 @@ struct FloatingOverlayView: View {
         VStack(spacing: 0) {
             if content.showPagePicker {
                 floatingPagePickerView
-            } else if isDone {
+            } else if isDone && (listeningMode == .wordTracking || hasNextPage) {
                 floatingDoneView
             } else {
                 floatingPrompterView
@@ -1260,11 +1267,14 @@ struct FloatingOverlayView: View {
         .animation(.easeInOut(duration: 0.5), value: isDone)
         .onChange(of: isDone) { _, done in
             if done {
-                // Stop listening when page is done
-                speechRecognizer.stop()
+                if listeningMode == .wordTracking {
+                    speechRecognizer.stop()
+                }
                 if !hasNextPage {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        speechRecognizer.shouldDismiss = true
+                    if listeningMode == .wordTracking {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            speechRecognizer.shouldDismiss = true
+                        }
                     }
                 } else if followingCursor || NotchSettings.shared.autoNextPage {
                     startCountdown()
